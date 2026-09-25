@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assinatura Digital</title>
+<style>
+  :root { --azul:#1f4fd1; --verde:#0f8a3c; --vermelho:#c62828; --cinza:#5b6472; --borda:#d9dee7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", system-ui, sans-serif; background:#f3f5f9; color:#1b2330; font-size:18px; }
+  header { background:#12203f; color:#fff; padding:22px 16px; text-align:center; }
+  header h1 { margin:0; font-size:30px; }
+  header p { margin:6px 0 0; opacity:.8; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 48px; }
+
+  .abas { display:flex; gap:8px; margin-bottom:-1px; }
+  .abas button { flex:1; padding:16px; font-size:19px; font-weight:700; letter-spacing:.5px; border:1px solid var(--borda);
+                 border-bottom:none; border-radius:12px 12px 0 0; background:#e6e9f0; color:var(--cinza); cursor:pointer; }
+  .abas button.ativa { background:#fff; color:var(--azul); }
+  .painel { display:none; background:#fff; border:1px solid var(--borda); border-radius:0 0 12px 12px; padding:28px; }
+  .painel.ativo { display:block; }
+
+  label { display:block; font-weight:600; margin:0 0 8px; }
+  input[type=file] { width:100%; padding:14px; border:2px dashed var(--borda); border-radius:10px; font-size:17px; margin-bottom:20px; background:#fafbfd; }
+  .botao { display:inline-block; padding:14px 26px; font-size:18px; font-weight:700; border:none; border-radius:10px;
+           background:var(--azul); color:#fff; cursor:pointer; text-decoration:none; }
+  .botao:disabled { opacity:.5; cursor:default; }
+  .botao.secundario { background:#12203f; }
+
+  .info { margin-top:24px; padding:20px; border-radius:10px; background:#f6f8fc; border:1px solid var(--borda); }
+  .info dt { font-size:14px; text-transform:uppercase; letter-spacing:.6px; color:var(--cinza); margin-top:12px; }
+  .info dt:first-child { margin-top:0; }
+  .info dd { margin:4px 0 0; }
+  .hash { font-family: Consolas, monospace; font-size:17px; word-break:break-all; background:#fff; padding:8px 10px;
+          border-radius:6px; border:1px solid var(--borda); }
+  .ok-texto { color:var(--verde); font-weight:700; }
+
+  .resultado { margin-top:24px; padding:28px; border-radius:14px; text-align:center; color:#fff; }
+  .resultado .titulo { font-size:34px; font-weight:800; }
+  .resultado ul { text-align:left; display:inline-block; margin:14px 0 0; font-size:18px; }
+  .resultado.valido { background:var(--verde); }
+  .resultado.invalido { background:var(--vermelho); }
+  .resultado .hash { color:#1b2330; margin-top:14px; font-size:15px; text-align:left; }
+
+  .nota { margin-top:28px; font-size:16px; color:var(--cinza); line-height:1.5; }
+  details { margin-top:16px; font-size:15px; color:var(--cinza); }
+  details pre { white-space:pre-wrap; word-break:break-all; font-size:12px; background:#fff; padding:10px; border:1px solid var(--borda); border-radius:6px; }
+  .oculto { display:none; }
+  @media (max-width:600px) { .abas button { font-size:15px; padding:12px 6px; } .painel { padding:18px; } .resultado .titulo { font-size:24px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Assinatura Digital de Documentos</h1>
+  <p>SHA-256 + RSA-PSS · Integridade e Autenticidade</p>
+</header>
+
+<main>
+  <div class="abas">
+    <button class="ativa" data-aba="assinar">ASSINAR DOCUMENTO</button>
+    <button data-aba="verificar">VERIFICAR DOCUMENTO</button>
+  </div>
+
+  <!-- ============ ASSINAR ============ -->
+  <section class="painel ativo" id="assinar">
+    <form id="form-assinar">
+      <label for="doc-assinar">1. Selecione o documento (PDF)</label>
+      <input type="file" id="doc-assinar" name="documento" accept=".pdf,application/pdf" required>
+      <button class="botao" type="submit">Assinar documento</button>
+    </form>
+
+    <dl class="info oculto" id="saida-assinar">
+      <dt>Arquivo</dt><dd id="a-nome"></dd>
+      <dt>Hash SHA-256 do documento</dt><dd class="hash" id="a-hash"></dd>
+      <dt>Assinatura digital</dt>
+      <dd><span class="ok-texto">✓ Assinatura criada com a chave privada da instituição</span></dd>
+      <dd style="margin-top:16px"><a class="botao secundario" id="a-baixar">⬇ Baixar assinatura (.sig)</a></dd>
+    </dl>
+
+    <p class="nota">O PDF original <b>não é alterado nem cifrado</b>: ele continua legível.
+      A assinatura é um arquivo separado que permite detectar qualquer modificação.</p>
+  </section>
+
+  <!-- ============ VERIFICAR ============ -->
+  <section class="painel" id="verificar">
+    <form id="form-verificar">
+      <label for="doc-verificar">1. Documento</label>
+      <input type="file" id="doc-verificar" name="documento" required>
+      <label for="sig-verificar">2. Arquivo de assinatura (.sig)</label>
+      <input type="file" id="sig-verificar" name="assinatura" accept=".sig" required>
+      <button class="botao" type="submit">Verificar autenticidade</button>
+    </form>
+
+    <div class="resultado valido oculto" id="r-valido">
+      <div class="titulo">✓ Documento autêntico</div>
+      <ul>
+        <li>A assinatura digital é válida</li>
+        <li>O conteúdo corresponde ao documento originalmente assinado</li>
+        <li>Não foram detectadas alterações</li>
+      </ul>
+      <div class="hash"></div>
+    </div>
+
+    <div class="resultado invalido oculto" id="r-invalido">
+      <div class="titulo">✕ Documento adulterado ou assinatura inválida</div>
+      <ul>
+        <li>O hash do documento não corresponde ao que foi assinado</li>
+        <li>O arquivo foi modificado após a assinatura, ou a assinatura não é desta instituição</li>
+      </ul>
+      <div class="hash"></div>
+    </div>
+
+    <p class="nota">A verificação usa apenas a <b>chave pública</b>, que pode ser divulgada a qualquer pessoa.</p>
+    <details>
+      <summary>Ver chave pública da instituição</summary>
+      <pre>{{ chave_publica }}</pre>
+    </details>
+  </section>
+</main>
+
+<script>
+  // Troca de abas
+  document.querySelectorAll(".abas button").forEach(botao => {
+    botao.onclick = () => {
+      document.querySelectorAll(".abas button, .painel").forEach(e => e.classList.remove("ativa", "ativo"));
+      botao.classList.add("ativa");
+      document.getElementById(botao.dataset.aba).classList.add("ativo");
+    };
+  });
+
+  async function enviar(form, url) {
+    const botao = form.querySelector("button");
+    botao.disabled = true;
+    try {
+      const resp = await fetch(url, { method: "POST", body: new FormData(form) });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      return await resp.json();
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
+  // ASSINAR: o servidor calcula o hash e assina com a chave privada
+  document.getElementById("form-assinar").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const r = await enviar(ev.target, "/assinar");
+    document.getElementById("a-nome").textContent = r.nome;
+    document.getElementById("a-hash").textContent = r.hash;
+    const link = document.getElementById("a-baixar");
+    URL.revokeObjectURL(link.href);
+    link.href = URL.createObjectURL(new Blob([r.assinatura], { type: "text/plain" }));
+    link.download = r.nome + ".sig";
+    document.getElementById("saida-assinar").classList.remove("oculto");
+  };
+
+  // VERIFICAR: o servidor recalcula o hash e confere a assinatura com a chave pública
+  document.getElementById("form-verificar").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const r = await enviar(ev.target, "/verificar");
+    const mostrar = document.getElementById(r.valido ? "r-valido" : "r-invalido");
+    const esconder = document.getElementById(r.valido ? "r-invalido" : "r-valido");
+    esconder.classList.add("oculto");
+    mostrar.querySelector(".hash").textContent = "SHA-256 do documento enviado: " + r.hash;
+    mostrar.classList.remove("oculto");
+  };
+
+  // Ao trocar qualquer arquivo, esconde o resultado anterior (evita confusão na demo)
+  document.querySelectorAll("#form-verificar input").forEach(i => i.onchange = () =>
+    document.querySelectorAll(".resultado").forEach(e => e.classList.add("oculto")));
+  document.getElementById("doc-assinar").onchange = () =>
+    document.getElementById("saida-assinar").classList.add("oculto");
+</script>
+</body>
+</html>
