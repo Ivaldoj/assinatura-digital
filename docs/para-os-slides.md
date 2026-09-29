@@ -4,69 +4,72 @@
 
 | Item | O que usamos |
 |---|---|
-| Linguagem / biblioteca | Python 3 + Flask · biblioteca `cryptography` (OpenSSL) |
+| Linguagem / bibliotecas | Python 3 + Flask · `cryptography` (OpenSSL) · `pyHanko` (assinatura de PDF) |
+| Formato | **PAdES**: assinatura embutida no próprio PDF (padrão da ICP-Brasil / Adobe) |
 | Função hash | **SHA-256** (resumo de 256 bits = 64 caracteres hex) |
 | Assinatura | **RSA-PSS**, chave de **2048 bits**, expoente público 65537 |
-| Parâmetros do PSS | MGF1 com SHA-256 · salt de tamanho máximo |
-| Formato das chaves | `privada.pem` (PKCS#8, fica só no servidor) · `publica.pem` (SubjectPublicKeyInfo) |
-| Formato da assinatura | arquivo `.sig` separado, 256 bytes em Base64 — o PDF não é alterado |
+| Certificado | **X.509** com a chave pública + nome da instituição, embutido no PDF |
+| Chave privada | `chaves/privada.pem` (PKCS#8) — fica só no servidor, nunca sai dele |
 
 Trecho do código (app.py) — cabe no slide:
 
 ```python
-# ASSINAR (chave privada)
-resumo = hashlib.sha256(conteudo).digest()
-assinatura = CHAVE_PRIVADA.sign(resumo, PSS, Prehashed(SHA256))
+# ASSINAR: hash SHA-256 + chave PRIVADA (RSA-PSS); assinatura e certificado vão para dentro do PDF
+signers.sign_pdf(pdf, PdfSignatureMetadata(md_algorithm="sha256"),
+                 signer=ASSINANTE_INSTITUICAO, output=saida)
 
-# VERIFICAR (chave pública)
-resumo = hashlib.sha256(conteudo).digest()
-CHAVE_PUBLICA.verify(assinatura, resumo, PSS, Prehashed(SHA256))
-# válido → segue;  inválido → InvalidSignature
+# VERIFICAR: recalcula o hash, usa a chave PÚBLICA do certificado embutido
+# e confere se o certificado é o da instituição (âncora de confiança)
+status = validate_pdf_signature(assinatura, ValidationContext(trust_roots=[CERT_CONFIAVEL]))
+status.intact   # integridade   → hash recalculado == hash assinado
+status.valid    # assinatura    → confere com a chave pública
+status.trust_problem_indic is None   # autenticidade → certificado é o da instituição
 ```
 
 ## Fluxo conferido com o código final
 
-Assinatura: Documento → SHA-256 → hash → RSA-PSS com **chave privada** → `.sig`
-Verificação: Documento recebido → SHA-256 (recalculado) → RSA-PSS verify com **chave pública** + `.sig` → válido / inválido
+Assinatura: PDF → SHA-256 → hash → RSA-PSS com **chave privada** → assinatura + certificado **embutidos no PDF**
+Verificação: PDF assinado → extrai assinatura e certificado → recalcula SHA-256 → verifica com a **chave pública** do certificado → confere se o certificado é o da instituição
 
-Observação: a verificação não compara dois hashes "à mão"; é a própria operação
-`verify` que confirma se a assinatura corresponde ao hash recalculado.
+Para a fala: "não precisa de chave extra" **não** significa que não há chave pública. Ela vem
+**dentro do PDF**, no certificado. O sistema só precisa saber **qual certificado é confiável**.
 
-## Números reais para citar (exemplos/)
+## As três checagens (o que cada cenário da demo prova)
 
-- `declaracao_original.pdf` (nota 7.5) → `b6f19c8c10d3356a1fb31e80d0f9adeb6fb34b46e935a65072091c3cddddc52f`
-- `declaracao_adulterada.pdf` (nota 9.5) → `2ac4618ed57122713fabb17e9ae6c533953f605f93174a67a5163004f50da0ae`
-- Os arquivos diferem em **1 byte** (de 799); o hash muda por completo (efeito avalanche).
+| Cenário | Integridade | Assinatura | Autenticidade | O que prova |
+|---|---|---|---|---|
+| PDF assinado pela instituição | ✓ | ✓ | ✓ | funcionamento normal (verde) |
+| Mesmo PDF com a nota alterada (1 byte) | **✕** | ✓ | ✓ | **integridade**: a alteração é detectada |
+| PDF alterado re-assinado pelo **falsificador** | ✓ | ✓ | **✕** | **autenticidade**: sem a chave privada da instituição, não há como forjar |
 
-## Integridade × Autenticidade (o que cada parte da demo prova)
+Frase-chave: "Um hash sozinho o falsificador recalcula. Ele até assina com um certificado que diz
+'Universidade Exemplo', mas não consegue usar a chave privada da instituição."
 
-| Cenário | Resultado | O que prova |
-|---|---|---|
-| Original + assinatura da instituição | ✓ verde | funcionamento normal |
-| Adulterado + assinatura original | ✕ vermelho | **integridade**: 1 byte alterado é detectado |
-| Adulterado + assinatura nova do **falsificador** | ✕ vermelho | **autenticidade**: sem a chave privada da instituição, não há como forjar |
+## Números para citar
 
-Frase-chave: "Um hash sozinho o falsificador recalcula. A assinatura, ele não consegue refazer,
-porque não tem a chave privada da instituição."
+- `exemplos/declaracao_original.pdf` e `declaracao_adulterada.pdf` diferem em **1 byte** (de 799).
+- `adulterar.py` altera **1 byte** do PDF já assinado (7.5 → 9.5) e o hash muda por completo (efeito avalanche).
+- Os hashes mudam a cada assinatura (a data da assinatura faz parte do arquivo assinado), então use os que aparecerem na tela.
 
 ## Ressalva sobre PKI (para a fala)
 
-Nesta demo, a chave pública é confiável porque vem do próprio sistema da instituição.
-No mundo real, é preciso provar **de quem** é a chave pública: isso é feito por um
-**certificado digital** emitido por uma Autoridade Certificadora (PKI / ICP-Brasil),
-que liga a chave pública à identidade da instituição. Ficou fora do escopo de propósito.
+Nesta demo o certificado da instituição é **autoassinado** e o sistema de verificação já sabe
+que ele é o confiável. Na vida real, quem atesta que o certificado pertence à instituição é uma
+**Autoridade Certificadora** (ICP-Brasil); é por isso que o Adobe ou o gov.br reconhecem uma
+assinatura oficial. O caso do falsificador mostra exatamente por que isso é necessário:
+qualquer um consegue criar um certificado com o nome que quiser.
 
 Curiosidade: o RSA-PSS usa um salt aleatório, então assinar o mesmo PDF duas vezes gera
-arquivos `.sig` diferentes — e ambos são válidos.
+assinaturas diferentes — e ambas são válidas.
 
 ## Prints (docs/prints/)
 
 | Arquivo | Uso sugerido |
 |---|---|
 | `0-tela-inicial.png` | visão geral da ferramenta |
-| `1-assinatura-criada.png` | etapa de assinatura (nome, hash, confirmação) |
-| `2-documento-autentico.png` | resultado válido (verde) |
-| `3-documento-adulterado.png` | resultado inválido (vermelho) |
-| `4-falsificador-assina.png` | falsificador re-assina o PDF adulterado com a própria chave |
-| `5-falsificador-rejeitado.png` | assinatura do falsificador rejeitada (vermelho) |
+| `1-assinatura-criada.png` | etapa de assinatura (hash, confirmação, baixar PDF assinado) |
+| `2-documento-autentico.png` | resultado válido (verde, três ✓) |
+| `3-documento-adulterado.png` | integridade ✕ — hashes diferentes lado a lado |
+| `4-falsificador-assina.png` | falsificador assina o PDF alterado com a própria chave |
+| `5-falsificador-rejeitado.png` | autenticidade ✕ — hashes iguais, mas certificado não confiável |
 | `pdf-original.png` / `pdf-adulterada.png` | os dois PDFs lado a lado — só a nota muda |

@@ -26,24 +26,31 @@
            background:var(--azul); color:#fff; cursor:pointer; text-decoration:none; }
   .botao:disabled { opacity:.5; cursor:default; }
   .botao.secundario { background:#12203f; }
+  .opcoes { display:flex; flex-wrap:wrap; gap:10px 28px; margin-bottom:22px; }
+  .opcoes label { font-weight:400; margin:0; cursor:pointer; }
 
   .info { margin-top:24px; padding:20px; border-radius:10px; background:#f6f8fc; border:1px solid var(--borda); }
   .info dt { font-size:14px; text-transform:uppercase; letter-spacing:.6px; color:var(--cinza); margin-top:12px; }
   .info dt:first-child { margin-top:0; }
   .info dd { margin:4px 0 0; }
-  .hash { font-family: Consolas, monospace; font-size:17px; word-break:break-all; background:#fff; padding:8px 10px;
+  .hash { font-family: Consolas, monospace; font-size:16px; word-break:break-all; background:#fff; padding:8px 10px;
           border-radius:6px; border:1px solid var(--borda); }
   .ok-texto { color:var(--verde); font-weight:700; }
   .ok-texto.alerta { color:var(--vermelho); }
-  .opcoes { display:flex; flex-wrap:wrap; gap:10px 28px; margin-bottom:22px; }
-  .opcoes label { font-weight:400; margin:0; cursor:pointer; }
 
-  .resultado { margin-top:24px; padding:28px; border-radius:14px; text-align:center; color:#fff; }
-  .resultado .titulo { font-size:34px; font-weight:800; }
-  .resultado ul { text-align:left; display:inline-block; margin:14px 0 0; font-size:18px; }
+  .resultado { margin-top:24px; padding:26px 28px; border-radius:14px; color:#fff; }
   .resultado.valido { background:var(--verde); }
   .resultado.invalido { background:var(--vermelho); }
-  .resultado .hash { color:#1b2330; margin-top:14px; font-size:15px; text-align:left; }
+  .resultado .titulo { font-size:32px; font-weight:800; text-align:center; }
+  .checks { list-style:none; padding:0; margin:18px 0 0; font-size:19px; }
+  .checks li { padding:6px 0; }
+  .checks b { display:inline-block; width:30px; }
+  .detalhes { margin-top:18px; background:#fff; color:#1b2330; border-radius:10px; padding:14px 16px; font-size:15px; }
+  .detalhes dt { font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--cinza); margin-top:10px; }
+  .detalhes dt:first-child { margin-top:0; }
+  .detalhes dd { margin:2px 0 0; }
+  .detalhes .hash { font-size:14px; padding:6px 8px; }
+  .detalhes .hash.difere { border-color:var(--vermelho); background:#fdecec; }
 
   .nota { margin-top:28px; font-size:16px; color:var(--cinza); line-height:1.5; }
   details { margin-top:16px; font-size:15px; color:var(--cinza); }
@@ -55,7 +62,7 @@
 <body>
 <header>
   <h1>Assinatura Digital de Documentos</h1>
-  <p>SHA-256 + RSA-PSS · Integridade e Autenticidade</p>
+  <p>PDF assinado (PAdES) · SHA-256 + RSA-PSS · Integridade e Autenticidade</p>
 </header>
 
 <main>
@@ -72,56 +79,49 @@
       <label>2. Assinar com a chave privada de:</label>
       <div class="opcoes">
         <label><input type="radio" name="assinante" value="instituicao" checked> Instituição (chave legítima)</label>
-        <label><input type="radio" name="assinante" value="falsificador"> Falsificador (outra chave privada)</label>
+        <label><input type="radio" name="assinante" value="falsificador"> Falsificador (outra chave, mesmo nome)</label>
       </div>
       <button class="botao" type="submit">Assinar documento</button>
     </form>
 
     <dl class="info oculto" id="saida-assinar">
-      <dt>Arquivo</dt><dd id="a-nome"></dd>
-      <dt>Hash SHA-256 do documento</dt><dd class="hash" id="a-hash"></dd>
+      <dt>Arquivo assinado</dt><dd id="a-nome"></dd>
+      <dt>Hash SHA-256 que foi assinado</dt><dd class="hash" id="a-hash"></dd>
       <dt>Assinatura digital</dt>
       <dd><span class="ok-texto" id="a-status"></span></dd>
-      <dd style="margin-top:16px"><a class="botao secundario" id="a-baixar">⬇ Baixar assinatura (.sig)</a></dd>
+      <dd style="margin-top:16px"><a class="botao secundario" id="a-baixar">⬇ Baixar PDF assinado</a></dd>
     </dl>
 
-    <p class="nota">O PDF original <b>não é alterado nem cifrado</b>: ele continua legível.
-      A assinatura é um arquivo separado que permite detectar qualquer modificação.</p>
+    <p class="nota">A assinatura e o certificado da instituição ficam <b>embutidos no próprio PDF</b>.
+      O conteúdo <b>não é cifrado</b>: o documento continua legível. A criptografia serve para detectar
+      qualquer modificação e provar quem o emitiu.</p>
   </section>
 
   <!-- ============ VERIFICAR ============ -->
   <section class="painel" id="verificar">
     <form id="form-verificar">
-      <label for="doc-verificar">1. Documento</label>
-      <input type="file" id="doc-verificar" name="documento" required>
-      <label for="sig-verificar">2. Arquivo de assinatura (.sig)</label>
-      <input type="file" id="sig-verificar" name="assinatura" accept=".sig" required>
+      <label for="doc-verificar">Selecione o PDF assinado</label>
+      <input type="file" id="doc-verificar" name="documento" accept=".pdf,application/pdf" required>
       <button class="botao" type="submit">Verificar autenticidade</button>
     </form>
 
-    <div class="resultado valido oculto" id="r-valido">
-      <div class="titulo">✓ Documento autêntico</div>
-      <ul>
-        <li>A assinatura digital é válida</li>
-        <li>O conteúdo corresponde ao documento originalmente assinado</li>
-        <li>Não foram detectadas alterações</li>
-      </ul>
-      <div class="hash"></div>
+    <div class="resultado oculto" id="resultado">
+      <div class="titulo" id="r-titulo"></div>
+      <ul class="checks" id="r-checks"></ul>
+      <dl class="detalhes" id="r-detalhes">
+        <dt>Assinado por (segundo o certificado embutido)</dt><dd id="r-titular"></dd>
+        <dt>Data da assinatura · Algoritmo</dt><dd id="r-data"></dd>
+        <dt>Hash SHA-256 que foi assinado</dt><dd class="hash" id="r-hash-assinado"></dd>
+        <dt>Hash SHA-256 recalculado agora</dt><dd class="hash" id="r-hash-atual"></dd>
+      </dl>
     </div>
 
-    <div class="resultado invalido oculto" id="r-invalido">
-      <div class="titulo">✕ Documento adulterado ou assinatura inválida</div>
-      <ul>
-        <li>A assinatura não confere com este documento e a chave pública da instituição</li>
-        <li>Causas possíveis: o arquivo foi modificado após a assinatura, ou foi assinado por outra chave privada</li>
-      </ul>
-      <div class="hash"></div>
-    </div>
-
-    <p class="nota">A verificação usa apenas a <b>chave pública</b>, que pode ser divulgada a qualquer pessoa.</p>
+    <p class="nota">Não é preciso enviar nenhuma chave: a <b>chave pública</b> vem dentro do
+      <b>certificado</b> embutido no PDF. O sistema confere se esse certificado é o da instituição.</p>
     <details>
-      <summary>Ver chave pública da instituição</summary>
-      <pre>{{ chave_publica }}</pre>
+      <summary>Ver certificado confiável da instituição</summary>
+      <p>{{ titular }}</p>
+      <pre>{{ certificado }}</pre>
     </details>
   </section>
 </main>
@@ -148,40 +148,57 @@
     }
   }
 
-  // ASSINAR: o servidor calcula o hash e assina com a chave privada
-  document.getElementById("form-assinar").onsubmit = async (ev) => {
+  const $ = id => document.getElementById(id);
+
+  // ASSINAR: o servidor calcula o hash, assina com a chave privada e embute tudo no PDF
+  $("form-assinar").onsubmit = async (ev) => {
     ev.preventDefault();
     const r = await enviar(ev.target, "/assinar");
-    document.getElementById("a-nome").textContent = r.nome;
-    document.getElementById("a-hash").textContent = r.hash;
-    const status = document.getElementById("a-status");
-    status.textContent = r.falsificador
-      ? "⚠ Assinatura criada com a chave privada de um FALSIFICADOR (não é a da instituição)"
-      : "✓ Assinatura criada com a chave privada da instituição";
-    status.classList.toggle("alerta", r.falsificador);
-    const link = document.getElementById("a-baixar");
+    $("a-nome").textContent = r.nome;
+    $("a-hash").textContent = r.hash;
+    $("a-status").textContent = r.falsificador
+      ? "⚠ Assinado com a chave privada de um FALSIFICADOR (certificado com o mesmo nome, mas não é o da instituição)"
+      : "✓ Assinado com a chave privada da instituição e embutido no PDF";
+    $("a-status").classList.toggle("alerta", r.falsificador);
+    const pdf = Uint8Array.from(atob(r.pdf), c => c.charCodeAt(0));
+    const link = $("a-baixar");
     URL.revokeObjectURL(link.href);
-    link.href = URL.createObjectURL(new Blob([r.assinatura], { type: "text/plain" }));
-    link.download = r.nome + (r.falsificador ? ".falsificador.sig" : ".sig");
-    document.getElementById("saida-assinar").classList.remove("oculto");
+    link.href = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+    link.download = r.falsificador ? r.nome.replace("_assinado", "_assinado_falsificador") : r.nome;
+    $("saida-assinar").classList.remove("oculto");
   };
 
-  // VERIFICAR: o servidor recalcula o hash e confere a assinatura com a chave pública
-  document.getElementById("form-verificar").onsubmit = async (ev) => {
+  // VERIFICAR: só o PDF. A chave pública vem no certificado embutido.
+  $("form-verificar").onsubmit = async (ev) => {
     ev.preventDefault();
     const r = await enviar(ev.target, "/verificar");
-    const mostrar = document.getElementById(r.valido ? "r-valido" : "r-invalido");
-    const esconder = document.getElementById(r.valido ? "r-invalido" : "r-valido");
-    esconder.classList.add("oculto");
-    mostrar.querySelector(".hash").textContent = "SHA-256 do documento enviado: " + r.hash;
-    mostrar.classList.remove("oculto");
+    const caixa = $("resultado");
+    caixa.classList.remove("oculto", "valido", "invalido");
+    caixa.classList.add(r.valido ? "valido" : "invalido");
+    $("r-titulo").textContent = r.valido ? "✓ Documento autêntico" : "✕ Documento adulterado ou assinatura inválida";
+
+    if (!r.assinado) {
+      $("r-checks").innerHTML = "<li><b>✕</b>" + r.erro + "</li>";
+      $("r-detalhes").classList.add("oculto");
+      return;
+    }
+    const item = (ok, texto) => `<li><b>${ok ? "✓" : "✕"}</b>${texto}</li>`;
+    $("r-checks").innerHTML =
+      item(r.integro, "Integridade: o conteúdo não foi alterado após a assinatura") +
+      item(r.assinatura_ok, "Assinatura confere com a chave pública do certificado") +
+      item(r.confiavel, "Autenticidade: o certificado é o da instituição");
+    $("r-titular").textContent = r.titular;
+    $("r-data").textContent = r.data + " · " + r.algoritmo;
+    $("r-hash-assinado").textContent = r.hash_assinado;
+    $("r-hash-atual").textContent = r.hash_atual;
+    $("r-hash-atual").classList.toggle("difere", r.hash_atual !== r.hash_assinado);
+    $("r-detalhes").classList.remove("oculto");
   };
 
-  // Ao trocar qualquer arquivo, esconde o resultado anterior (evita confusão na demo)
-  document.querySelectorAll("#form-verificar input").forEach(i => i.onchange = () =>
-    document.querySelectorAll(".resultado").forEach(e => e.classList.add("oculto")));
+  // Ao trocar arquivo/opção, esconde o resultado anterior (evita confusão na demo)
+  $("doc-verificar").onchange = () => $("resultado").classList.add("oculto");
   document.querySelectorAll("#form-assinar input").forEach(i => i.onchange = () =>
-    document.getElementById("saida-assinar").classList.add("oculto"));
+    $("saida-assinar").classList.add("oculto"));
 </script>
 </body>
 </html>
