@@ -43,6 +43,11 @@ def carregar_ou_gerar_chaves():
 
 CHAVE_PRIVADA, CHAVE_PUBLICA = carregar_ou_gerar_chaves()
 
+# Chave de um FALSIFICADOR: uma chave RSA legítima, mas que NÃO é a da instituição.
+# Serve para demonstrar AUTENTICIDADE: ele consegue alterar o documento e gerar uma
+# assinatura nova, mas ela não confere com a chave pública da instituição.
+CHAVE_FALSIFICADOR = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
 app = Flask(__name__)
 
 
@@ -60,11 +65,15 @@ def assinar():
     arquivo = request.files["documento"]
     conteudo = arquivo.read()                     # o documento NÃO é alterado
 
+    falsificador = request.form.get("assinante") == "falsificador"
+    chave = CHAVE_FALSIFICADOR if falsificador else CHAVE_PRIVADA
+
     resumo = sha256(conteudo)                     # 1. Documento -> SHA-256 -> hash
-    assinatura = CHAVE_PRIVADA.sign(resumo, PSS, PREHASHED_SHA256)  # 2. hash + chave PRIVADA
+    assinatura = chave.sign(resumo, PSS, PREHASHED_SHA256)  # 2. hash + chave PRIVADA
 
     return jsonify(
         nome=arquivo.filename,
+        falsificador=falsificador,
         hash=resumo.hex(),
         assinatura=base64.b64encode(assinatura).decode(),
     )

@@ -34,6 +34,9 @@
   .hash { font-family: Consolas, monospace; font-size:17px; word-break:break-all; background:#fff; padding:8px 10px;
           border-radius:6px; border:1px solid var(--borda); }
   .ok-texto { color:var(--verde); font-weight:700; }
+  .ok-texto.alerta { color:var(--vermelho); }
+  .opcoes { display:flex; flex-wrap:wrap; gap:10px 28px; margin-bottom:22px; }
+  .opcoes label { font-weight:400; margin:0; cursor:pointer; }
 
   .resultado { margin-top:24px; padding:28px; border-radius:14px; text-align:center; color:#fff; }
   .resultado .titulo { font-size:34px; font-weight:800; }
@@ -66,6 +69,11 @@
     <form id="form-assinar">
       <label for="doc-assinar">1. Selecione o documento (PDF)</label>
       <input type="file" id="doc-assinar" name="documento" accept=".pdf,application/pdf" required>
+      <label>2. Assinar com a chave privada de:</label>
+      <div class="opcoes">
+        <label><input type="radio" name="assinante" value="instituicao" checked> Instituição (chave legítima)</label>
+        <label><input type="radio" name="assinante" value="falsificador"> Falsificador (outra chave privada)</label>
+      </div>
       <button class="botao" type="submit">Assinar documento</button>
     </form>
 
@@ -73,7 +81,7 @@
       <dt>Arquivo</dt><dd id="a-nome"></dd>
       <dt>Hash SHA-256 do documento</dt><dd class="hash" id="a-hash"></dd>
       <dt>Assinatura digital</dt>
-      <dd><span class="ok-texto">✓ Assinatura criada com a chave privada da instituição</span></dd>
+      <dd><span class="ok-texto" id="a-status"></span></dd>
       <dd style="margin-top:16px"><a class="botao secundario" id="a-baixar">⬇ Baixar assinatura (.sig)</a></dd>
     </dl>
 
@@ -104,8 +112,8 @@
     <div class="resultado invalido oculto" id="r-invalido">
       <div class="titulo">✕ Documento adulterado ou assinatura inválida</div>
       <ul>
-        <li>O hash do documento não corresponde ao que foi assinado</li>
-        <li>O arquivo foi modificado após a assinatura, ou a assinatura não é desta instituição</li>
+        <li>A assinatura não confere com este documento e a chave pública da instituição</li>
+        <li>Causas possíveis: o arquivo foi modificado após a assinatura, ou foi assinado por outra chave privada</li>
       </ul>
       <div class="hash"></div>
     </div>
@@ -146,10 +154,15 @@
     const r = await enviar(ev.target, "/assinar");
     document.getElementById("a-nome").textContent = r.nome;
     document.getElementById("a-hash").textContent = r.hash;
+    const status = document.getElementById("a-status");
+    status.textContent = r.falsificador
+      ? "⚠ Assinatura criada com a chave privada de um FALSIFICADOR (não é a da instituição)"
+      : "✓ Assinatura criada com a chave privada da instituição";
+    status.classList.toggle("alerta", r.falsificador);
     const link = document.getElementById("a-baixar");
     URL.revokeObjectURL(link.href);
     link.href = URL.createObjectURL(new Blob([r.assinatura], { type: "text/plain" }));
-    link.download = r.nome + ".sig";
+    link.download = r.nome + (r.falsificador ? ".falsificador.sig" : ".sig");
     document.getElementById("saida-assinar").classList.remove("oculto");
   };
 
@@ -167,8 +180,8 @@
   // Ao trocar qualquer arquivo, esconde o resultado anterior (evita confusão na demo)
   document.querySelectorAll("#form-verificar input").forEach(i => i.onchange = () =>
     document.querySelectorAll(".resultado").forEach(e => e.classList.add("oculto")));
-  document.getElementById("doc-assinar").onchange = () =>
-    document.getElementById("saida-assinar").classList.add("oculto");
+  document.querySelectorAll("#form-assinar input").forEach(i => i.onchange = () =>
+    document.getElementById("saida-assinar").classList.add("oculto"));
 </script>
 </body>
 </html>

@@ -64,6 +64,12 @@ Assinatura válida  ✓  /  inválida  ✕
 Se um único byte do documento mudar, o SHA-256 muda completamente (efeito avalanche), o hash deixa
 de corresponder ao que foi assinado e a verificação falha.
 
+**Por que não basta publicar o hash?** Porque um falsificador pode alterar o documento e calcular
+o novo hash. Com assinatura digital, ele até consegue gerar uma assinatura nova com a *sua própria*
+chave privada, mas ela não confere com a **chave pública da instituição**. A opção
+"Falsificador" na tela de assinatura existe para demonstrar exatamente isso: é o que garante a
+**autenticidade**. A chave do falsificador é gerada em memória a cada execução, apenas para a demo.
+
 ## 6. Instalação
 
 ```bash
@@ -78,16 +84,24 @@ python app.py
 
 Abra **http://localhost:5000** no navegador.
 
-## 8. Roteiro da demonstração (≈ 3 min)
+## 8. Roteiro da demonstração (≈ 3 min 30 s)
 
 A pasta `exemplos/` já traz dois PDFs **idênticos exceto por um único caractere** (nota `7.5` → `9.5`):
 
-1. Aba **ASSINAR**: selecione `exemplos/declaracao_original.pdf` e clique **Assinar documento**.
+**Parte A: integridade**
+
+1. Aba **ASSINAR**: selecione `exemplos/declaracao_original.pdf`, deixe **Instituição** marcada e clique **Assinar documento**.
 2. Mostre o **hash SHA-256** e a confirmação da assinatura. Clique em **Baixar assinatura**.
 3. Aba **VERIFICAR**: envie `declaracao_original.pdf` + `declaracao_original.pdf.sig` → **✓ Documento autêntico** (verde).
 4. Abra os dois PDFs lado a lado: a única diferença é a nota.
 5. Envie `declaracao_adulterada.pdf` + **a mesma** assinatura → **✕ Documento adulterado ou assinatura inválida** (vermelho).
 6. Compare o hash exibido com o do passo 2: mudou completamente por causa de 1 caractere.
+
+**Parte B: autenticidade ("e se o falsificador assinar de novo?")**
+
+7. Aba **ASSINAR**: selecione `declaracao_adulterada.pdf`, marque **Falsificador** e assine. Baixe `declaracao_adulterada.pdf.falsificador.sig`.
+8. Aba **VERIFICAR**: envie `declaracao_adulterada.pdf` + `declaracao_adulterada.pdf.falsificador.sig` → **✕ vermelho**.
+   A assinatura é matematicamente correta, mas foi feita com uma chave privada que não corresponde à chave pública da instituição.
 
 > Dica: faça um ensaio antes para que as chaves já estejam geradas. Elas são reutilizadas entre execuções,
 > então uma assinatura gerada no ensaio continua válida no dia da apresentação.
